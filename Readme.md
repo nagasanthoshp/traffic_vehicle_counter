@@ -1,6 +1,6 @@
 # Final Approach = Approach 1 + Approach 2 (This repo) 
 
-Note: all approaches stated at the end of this readme
+Note: all approaches are stated at the end of this readme
 
 ```
 cd yolo-coco
