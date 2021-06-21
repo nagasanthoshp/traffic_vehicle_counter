@@ -1,3 +1,21 @@
+# Final Approach = Approach 1 + Approach 2 (This repo) 
+
+Note: all approaches stated at the end of this readme
+
+```
+cd yolo-coco
+wget https://pjreddie.com/media/files/yolov3.weights
+cd ..
+python3 yolo_video.py --input highway_01.mp4 --output highway_01_out.mp4 --yolo yolo-coco
+```
+
+Pros:
+1. Handled hard shadows via Approach 2
+2. Used minimum object size; far away objects are not considered via Approach 1
+
+To run the repo: use `tf2.3.0`
+
+
 # Approaches
 
 ### Approach 1:
@@ -29,12 +47,4 @@ Cons:
 
 
 To address above cons, I simply added capabilities of Approach 1 into Approach 2 to make it more efficient.
-
-# Final Approach = Approach 1 + Approach 2 (This repo)
-`python3 yolo_video.py --input highway_01.mp4 --output highway_01_out.mp4 --yolo yolo-coco`
-Pros:
-1. Handled hard shadows from Approach 2
-2. Used minimum object size; far away objects are not considered from Approach 1
-
-To run the repo: use `tf2.3.0`
 
