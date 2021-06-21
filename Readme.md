@@ -20,7 +20,7 @@ To run the repo: use `tf2.3.0`
 
 ### Approach 1:
 #### Opencv + BG_substraction
-ref: [link](https://github.innominds.com/gustavogino/Vehicle-Counter) (I translated the code)
+ref: [link](https://github.innominds.com/gustavogino/Vehicle-Counter)
  
 Pros:
 
