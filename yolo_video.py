@@ -1,6 +1,5 @@
 # import the necessary packages
 import numpy as np
-import imutils
 import time
 from scipy import spatial
 import cv2
@@ -23,10 +22,24 @@ COLORS = np.random.randint(0, 255, size=(len(LABELS), 3),
 # PURPOSE: Displays the vehicle count on the top-left corner of the frame
 # PARAMETERS: Frame on which the count is displayed, the count number of vehicles 
 # RETURN: N/A
-def displayVehicleCount(frame, vehicle_count):
+
+def put_text(frame, string, pos):
 	cv2.putText(
 		frame, #Image
-		'Detected Vehicles: ' + str(vehicle_count), #Label
+		string, #Label
+		pos, #Position
+		cv2.FONT_HERSHEY_SIMPLEX, #Font
+		0.8, #Size
+		(0, 0xFF, 0), #Color
+		2, #Thickness
+		cv2.FONT_HERSHEY_COMPLEX_SMALL,
+		)
+
+def displayVehicleCount(frame, vehicle_count, count_per_vehicle_instance):
+
+	cv2.putText(
+		frame, #Image
+		'Total Detected Vehicles: ' + str(vehicle_count), #Label
 		(20, 20), #Position
 		cv2.FONT_HERSHEY_SIMPLEX, #Font
 		0.8, #Size
@@ -34,6 +47,10 @@ def displayVehicleCount(frame, vehicle_count):
 		2, #Thickness
 		cv2.FONT_HERSHEY_COMPLEX_SMALL,
 		)
+
+	for index, (_class, count) in enumerate(count_per_vehicle_instance.items()):
+		put_text(frame=frame, string='{} : {}'.format(_class, count), pos=(20, 30+((index+1)*20) ) )
+
 
 # PURPOSE: Determining if the box-mid point cross the line or are within the range of 5 units
 # from the line
@@ -55,7 +72,7 @@ def boxAndLineOverlap(x_mid_point, y_mid_point, line_coordinates):
 def displayFPS(start_time, num_frames):
 	current_time = int(time.time())
 	if(current_time > start_time):
-		os.system('clear') # Equivalent of CTRL+L on the terminal
+		# os.system('clear') # Equivalent of CTRL+L on the terminal
 		print("FPS:", num_frames)
 		num_frames = 0
 		start_time = current_time
@@ -68,6 +85,8 @@ def drawDetectionBoxes(idxs, boxes, classIDs, confidences, frame):
 	if len(idxs) > 0:
 		# loop over the indices we are keeping
 		for i in idxs.flatten():
+			if not (LABELS[classIDs[i]] in list_of_vehicles):
+				continue
 			# extract the bounding box coordinates
 			(x, y) = (boxes[i][0], boxes[i][1])
 			(w, h) = (boxes[i][2], boxes[i][3])
@@ -75,8 +94,13 @@ def drawDetectionBoxes(idxs, boxes, classIDs, confidences, frame):
 			# draw a bounding box rectangle and label on the frame
 			color = [int(c) for c in COLORS[classIDs[i]]]
 			cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-			text = "{}: {:.4f}".format(LABELS[classIDs[i]],
-				confidences[i])
+			if not LABELS[classIDs[i]] == 'train':
+				text = "{}: {:.4f}".format(LABELS[classIDs[i]],
+					confidences[i])
+			else:
+				text = "{}: {:.4f}".format('truck',
+					confidences[i])
+			
 			cv2.putText(frame, text, (x, y - 5),
 				cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 			#Draw a green dot in the middle of the box
@@ -120,8 +144,16 @@ def boxInPreviousFrames(previous_frame_detections, current_box, current_detectio
 	# Keeping the vehicle ID constant
 	current_detections[(centerX, centerY)] = previous_frame_detections[frame_num][coord]
 	return True
+def get_individual_counts(id_conf_for_display):
+	count_per_vehicle_instance = {'car':0, 'truck':0, 'motorbike':0, 'bus':0}
+	for _, values in id_conf_for_display.items():
+		if not values[0] == 'train':
+			count_per_vehicle_instance[values[0]]+=1
+		else:
+			count_per_vehicle_instance['truck']+=1
+	return count_per_vehicle_instance
 
-def count_vehicles(idxs, boxes, classIDs, vehicle_count, previous_frame_detections, frame):
+def count_vehicles(idxs, boxes, classIDs, vehicle_count, previous_frame_detections, frame, confidences, id_conf_for_display):
 	current_detections = {}
 	# ensure at least one detection exists
 	if len(idxs) > 0:
@@ -145,19 +177,24 @@ def count_vehicles(idxs, boxes, classIDs, vehicle_count, previous_frame_detectio
 				# else: #ID assigning
 					#Add the current detection mid-point of box to the list of detected items
 				# Get the ID corresponding to the current detection
-
 				ID = current_detections.get((centerX, centerY))
 				# If there are two detections having the same ID due to being too close, 
 				# then assign a new ID to current detection.
-				if (list(current_detections.values()).count(ID) > 1):
-					current_detections[(centerX, centerY)] = vehicle_count
-					vehicle_count += 1 
+				# import ipdb;ipdb.set_trace()
+				# if (list(current_detections.values()).count(ID) > 1):
+				# 	current_detections[(centerX, centerY)] = vehicle_count
+				# 	vehicle_count += 1 
+				print('current_detections', current_detections)
+				if not ID in id_conf_for_display:
+					id_conf_for_display[ID] = (LABELS[classIDs[i]], confidences[i])
+				elif id_conf_for_display[ID][1] < confidences[i]:
+						id_conf_for_display[ID] = (LABELS[classIDs[i]], confidences[i])
 
 				#Display the ID at the center of the box
-				cv2.putText(frame, str(ID+1), (centerX, centerY),\
-					cv2.FONT_HERSHEY_SIMPLEX, 0.5, [0,0,255], 2)
+				# cv2.putText(frame, str(ID+1), (centerX, centerY),\
+				# 	cv2.FONT_HERSHEY_SIMPLEX, 0.5, [0,0,255], 2)
 
-	return vehicle_count, current_detections
+	return vehicle_count, current_detections, id_conf_for_display
 
 # load our YOLO object detector trained on COCO dataset (80 classes)
 # and determine only the *output* layer names that we need from YOLO
@@ -191,6 +228,7 @@ num_frames, vehicle_count = 0, 0
 writer = initializeVideoWriter(video_width, video_height, videoStream)
 start_time = int(time.time())
 # loop over frames from the video file stream
+id_conf_for_display = {}
 while True:
 	print("================NEW FRAME================")
 	num_frames+= 1
@@ -243,7 +281,7 @@ while True:
 				# and and left corner of the bounding box
 				x = int(centerX - (width / 2))
 				y = int(centerY - (height / 2))
-                            
+
 				#Printing the info of the detection
 				#print('\nName:\t', LABELS[classID],
 					#'\t|\tBOX:\t', x,y)
@@ -269,12 +307,17 @@ while True:
 		preDefinedThreshold)
 
 	# Draw detection box 
+	#print(classID)
 	drawDetectionBoxes(idxs, boxes, classIDs, confidences, frame)
 
-	vehicle_count, current_detections = count_vehicles(idxs, boxes, classIDs, vehicle_count, previous_frame_detections, frame)
+	vehicle_count, current_detections, id_conf_for_display = count_vehicles(idxs, boxes, classIDs, vehicle_count, previous_frame_detections, frame, confidences, id_conf_for_display)
+	#print(id_conf_for_display)
+	#print('vechicle count:', vehicle_count)
+	#print('------------')
+	count_per_vehicle_instance = get_individual_counts(id_conf_for_display)
 
 	# Display Vehicle Count if a vehicle has passed the line 
-	displayVehicleCount(frame, vehicle_count)
+	displayVehicleCount(frame, vehicle_count, count_per_vehicle_instance)
 	
 	line_to_draw=550
 	cv2.line(frame, (25, line_to_draw), (1200, line_to_draw), (255,127,0), 3) 
